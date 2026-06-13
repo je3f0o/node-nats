@@ -1,0 +1,10 @@
+# Logs
+node_modules
+
+.env
+
+# Editor directories and files
+.DS_Store
+*.sw?
+
+copy_project.sh
