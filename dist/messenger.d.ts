@@ -5,6 +5,7 @@ export interface Encoder<T> {
     };
     decode(input: Uint8Array): T;
 }
+export declare const jsonEncoder: <T>() => Encoder<T>;
 export interface Endpoint<Req, Res> {
     gateway: string;
     api: string;

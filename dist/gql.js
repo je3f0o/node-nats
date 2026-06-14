@@ -4,37 +4,26 @@ exports.GqlClientMessenger = exports.GqlResEncoder = exports.GqlReqEncoder = voi
 /* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
  * File Name   : gql.ts
  * Created at  : 2026-05-21
- * Updated at  : 2026-05-22
+ * Updated at  : 2026-06-14
  * Author      : jeefo
  * Purpose     :
  * Description :
 .-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
 const graphql_1 = require("graphql");
 const messenger_1 = require("./messenger");
-exports.GqlReqEncoder = {
-    encode: (msg) => ({ finish: () => Buffer.from(JSON.stringify(msg)) }),
-    decode: (input) => JSON.parse(Buffer.from(input).toString()),
-};
-exports.GqlResEncoder = {
-    encode: (msg) => ({ finish: () => Buffer.from(JSON.stringify(msg)) }),
-    decode: (input) => JSON.parse(Buffer.from(input).toString()),
-};
-class GqlClientMessenger {
-    messenger;
-    async connect(config) {
-        this.messenger = new messenger_1.Messenger();
-        await this.messenger.connect(config);
-    }
+exports.GqlReqEncoder = (0, messenger_1.jsonEncoder)();
+exports.GqlResEncoder = (0, messenger_1.jsonEncoder)();
+class GqlClientMessenger extends messenger_1.Messenger {
     async close() {
-        await this.messenger.nc.close();
+        await this.nc.close();
     }
-    async request(gateway, doc, vars, token) {
+    async query(gateway, doc, vars, token) {
         const payload = {
             query: (0, graphql_1.print)(doc),
             token: token,
             variables: vars,
         };
-        const res = await this.messenger.request({
+        const res = await this.request({
             gateway,
             api: "gql",
             req: exports.GqlReqEncoder,
@@ -42,7 +31,6 @@ class GqlClientMessenger {
             payload: payload,
         });
         if (res.errors && res.errors.length > 0) {
-            console.log(res);
             throw new Error(res.errors[0].message);
         }
         const data = res.data;

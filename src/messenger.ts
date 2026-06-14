@@ -17,6 +17,11 @@ export interface Encoder<T> {
   decode(input: Uint8Array) : T;
 }
 
+export const jsonEncoder = <T>(): Encoder<T> => ({
+  encode: (msg)   => ({ finish: () => Buffer.from(JSON.stringify(msg)) }),
+  decode: (input) => JSON.parse(Buffer.from(input).toString()),
+});
+
 export interface Endpoint<Req, Res> {
   gateway  : string;
   api      : string;

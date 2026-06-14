@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Messenger = void 0;
+exports.Messenger = exports.jsonEncoder = void 0;
 /* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
  * File Name   : messenger.ts
  * Created at  : 2026-05-21
@@ -10,6 +10,11 @@ exports.Messenger = void 0;
  * Description :
 .-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
 const transport_node_1 = require("@nats-io/transport-node");
+const jsonEncoder = () => ({
+    encode: (msg) => ({ finish: () => Buffer.from(JSON.stringify(msg)) }),
+    decode: (input) => JSON.parse(Buffer.from(input).toString()),
+});
+exports.jsonEncoder = jsonEncoder;
 class Messenger {
     _nc;
     _name;

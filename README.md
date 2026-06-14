@@ -18,16 +18,24 @@ npm run build
 ## Encoders
 
 Every message is serialized through an `Encoder<T>`, so you can use JSON,
-Protobuf, or anything else:
+Protobuf, or anything else. A generic JSON encoder is built in:
+
+```ts
+import {jsonEncoder} from "nats-client";
+
+interface Event { id: string; at: number; }
+
+const codec = jsonEncoder<Event>();
+```
+
+To plug in your own format, implement the `Encoder<T>` interface:
 
 ```ts
 import {Encoder} from "nats-client";
 
-interface Event { id: string; at: number; }
-
-const JsonEncoder: Encoder<Event> = {
-  encode: (msg)   => ({ finish: () => Buffer.from(JSON.stringify(msg)) }),
-  decode: (input) => JSON.parse(Buffer.from(input).toString()),
+const myCodec: Encoder<Event> = {
+  encode: (msg)   => ({ finish: () => /* Uint8Array */ }),
+  decode: (input) => /* Event */,
 };
 ```
 
@@ -51,12 +59,12 @@ Both `name` and `url` are optional. `url` defaults to
 
 ```ts
 // Subscriber
-const sub = messenger.subscribe<Event>("orders.created", JsonEncoder, (event, subject) => {
+const sub = messenger.subscribe<Event>("orders.created", codec, (event, subject) => {
   console.log(`got ${event.id} on ${subject}`);
 });
 
 // Publisher
-messenger.publish<Event>("orders.created", JsonEncoder, { id: "abc", at: Date.now() });
+messenger.publish<Event>("orders.created", codec, { id: "abc", at: Date.now() });
 
 // Later
 sub.unsubscribe();
@@ -65,7 +73,7 @@ sub.unsubscribe();
 Pass a `queue` to load-balance delivery across a group of subscribers:
 
 ```ts
-messenger.subscribe<Event>("orders.created", JsonEncoder, handler, { queue: "workers" });
+messenger.subscribe<Event>("orders.created", codec, handler, { queue: "workers" });
 ```
 
 Handler errors are caught and logged, so a throwing handler won't tear down
@@ -75,7 +83,7 @@ the subscription.
 
 ```ts
 // Server (requires a `name` on connect)
-messenger.serve("ping", JsonEncoder, JsonEncoder, async (req) => {
+messenger.serve("ping", codec, codec, async (req) => {
   return { id: req.id, at: Date.now() };
 });
 
@@ -83,8 +91,8 @@ messenger.serve("ping", JsonEncoder, JsonEncoder, async (req) => {
 const res = await messenger.request<Event, Event>({
   gateway : "orders",
   api     : "ping",
-  req     : JsonEncoder,
-  res     : JsonEncoder,
+  req     : codec,
+  res     : codec,
   payload : { id: "abc", at: 0 },
   timeout : 5000,
 });
@@ -94,7 +102,9 @@ The subject is built as `${gateway}.${api}`.
 
 ## GraphQL over NATS
 
-`GqlClientMessenger` sends typed GraphQL documents to a gateway's `gql` API:
+`GqlClientMessenger` extends `Messenger`, so it inherits `connect`, `publish`,
+`subscribe`, `serve`, and `request`, and adds a typed `query()` that sends
+GraphQL documents to a gateway's `gql` API:
 
 ```ts
 import {GqlClientMessenger} from "nats-client";
@@ -102,7 +112,7 @@ import {GqlClientMessenger} from "nats-client";
 const client = new GqlClientMessenger();
 await client.connect();
 
-const data = await client.request("orders", MyQueryDocument, { id: "abc" });
+const data = await client.query("orders", MyQueryDocument, { id: "abc" });
 await client.close();
 ```
 

@@ -1,7 +1,7 @@
 /* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
  * File Name   : gql.ts
  * Created at  : 2026-05-21
- * Updated at  : 2026-05-22
+ * Updated at  : 2026-06-14
  * Author      : jeefo
  * Purpose     :
  * Description :
@@ -9,9 +9,8 @@
 import {print}             from "graphql";
 import {TypedDocumentNode} from "@graphql-typed-document-node/core";
 import {
-  Config,
-  Encoder,
   Messenger,
+  jsonEncoder,
 } from "./messenger";
 
 export interface GqlReq {
@@ -26,33 +25,19 @@ export interface GqlRes {
   errors? : any[];
 }
 
-export const GqlReqEncoder: Encoder<GqlReq> = {
-  encode: (msg)   => ({ finish: () => Buffer.from(JSON.stringify(msg)) }),
-  decode: (input) => JSON.parse(Buffer.from(input).toString()),
-};
-
-export const GqlResEncoder: Encoder<GqlRes> = {
-  encode: (msg)   => ({ finish: () => Buffer.from(JSON.stringify(msg)) }),
-  decode: (input) => JSON.parse(Buffer.from(input).toString()),
-};
+export const GqlReqEncoder = jsonEncoder<GqlReq>();
+export const GqlResEncoder = jsonEncoder<GqlRes>();
 
 type Unwrap<T> = T extends Record<string, any>
   ? T[keyof Omit<T, "__typename">]
   : T;
 
-export class GqlClientMessenger {
-  private messenger!: Messenger;
-
-  async connect(config?: Config) {
-    this.messenger = new Messenger();
-    await this.messenger.connect(config);
-  }
-
+export class GqlClientMessenger extends Messenger {
   async close() {
-    await this.messenger.nc.close();
+    await this.nc.close();
   }
 
-  async request<T, V extends Record<string, any>>(
+  async query<T, V extends Record<string, any>>(
     gateway : string,
     doc     : TypedDocumentNode<T, V>,
     vars?   : V,
@@ -64,7 +49,7 @@ export class GqlClientMessenger {
       variables : vars,
     };
 
-    const res = await this.messenger.request<GqlReq, GqlRes>({
+    const res = await this.request<GqlReq, GqlRes>({
       gateway,
       api     : "gql",
       req     : GqlReqEncoder,
@@ -73,7 +58,6 @@ export class GqlClientMessenger {
     });
 
     if (res.errors && res.errors.length > 0) {
-      console.log(res);
       throw new Error(res.errors[0].message);
     }
 
