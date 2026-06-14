@@ -1,0 +1,22 @@
+#!/bin/sh
+# Clean-rebuild the project and stage the fresh dist/ before committing.
+# Removing dist/ first drops stale output that no longer maps to any source.
+# Aborts the commit if the build fails.
+
+echo "[pre-commit] Cleaning dist/..."
+rm -rf dist
+
+echo "[pre-commit] Running build..."
+npm run build
+status=$?
+
+if [ $status -ne 0 ]; then
+  echo "[pre-commit] Build failed — commit aborted."
+  exit $status
+fi
+
+echo "[pre-commit] Staging dist/..."
+git add dist
+
+echo "[pre-commit] Build OK, dist/ staged."
+exit 0

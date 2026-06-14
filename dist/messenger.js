@@ -4,7 +4,7 @@ exports.Messenger = void 0;
 /* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
  * File Name   : messenger.ts
  * Created at  : 2026-05-21
- * Updated at  : 2026-05-21
+ * Updated at  : 2026-06-14
  * Author      : jeefo
  * Purpose     :
  * Description :
@@ -27,6 +27,27 @@ class Messenger {
         const reqBytes = endpoint.req.encode(endpoint.payload).finish();
         const msg = await this.nc.request(subject, reqBytes, { timeout });
         return endpoint.res.decode(msg.data);
+    }
+    publish(subject, enc, payload) {
+        const bytes = enc.encode(payload).finish();
+        this.nc.publish(subject, bytes);
+    }
+    subscribe(subject, enc, handler, opts) {
+        return this.nc.subscribe(subject, {
+            queue: opts?.queue,
+            callback: (err, msg) => {
+                if (err)
+                    return console.error(err);
+                (async () => {
+                    try {
+                        await handler(enc.decode(msg.data), msg.subject);
+                    }
+                    catch (error) {
+                        console.error("Error processing message", error);
+                    }
+                })();
+            }
+        });
     }
     serve(api, req, res, handler) {
         if (!this.name)

@@ -1,4 +1,4 @@
-import { NatsConnection } from "@nats-io/nats-core";
+import { Subscription, NatsConnection } from "@nats-io/nats-core";
 export interface Encoder<T> {
     encode(message: T): {
         finish(): Uint8Array;
@@ -24,5 +24,9 @@ export declare class Messenger {
     get name(): string | undefined;
     connect(config?: Config): Promise<void>;
     request<Req, Res>(endpoint: Endpoint<Req, Res>): Promise<Res>;
+    publish<T>(subject: string, enc: Encoder<T>, payload: T): void;
+    subscribe<T>(subject: string, enc: Encoder<T>, handler: (msg: T, subject: string) => Promise<void> | void, opts?: {
+        queue?: string;
+    }): Subscription;
     serve<Req, Res>(api: string, req: Encoder<Req>, res: Encoder<Res>, handler: (req: Req) => Promise<Res> | Res): void;
 }
