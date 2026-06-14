@@ -1,13 +1,16 @@
 /* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
  * File Name   : messenger.ts
  * Created at  : 2026-05-21
- * Updated at  : 2026-05-21
+ * Updated at  : 2026-06-14
  * Author      : jeefo
  * Purpose     :
  * Description :
 .-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
-import {connect}        from "@nats-io/transport-node";
-import {NatsConnection} from "@nats-io/nats-core";
+import {connect} from "@nats-io/transport-node";
+import {
+  Subscription,
+  NatsConnection,
+} from "@nats-io/nats-core";
 
 export interface Encoder<T> {
   encode(message: T)        : {finish(): Uint8Array};
@@ -49,6 +52,33 @@ export class Messenger {
     const msg      = await this.nc.request(subject, reqBytes, {timeout});
 
     return endpoint.res.decode(msg.data);
+  }
+
+  publish<T>(subject: string, enc: Encoder<T>, payload: T) {
+    const bytes = enc.encode(payload).finish();
+    this.nc.publish(subject, bytes);
+  }
+
+  subscribe<T>(
+    subject : string,
+    enc     : Encoder<T>,
+    handler : (msg: T, subject: string) => Promise<void> | void,
+    opts?   : {queue?: string}
+  ): Subscription {
+    return this.nc.subscribe(subject, {
+      queue: opts?.queue,
+      callback: (err, msg) => {
+        if (err) return console.error(err);
+
+        (async () => {
+          try {
+            await handler(enc.decode(msg.data), msg.subject);
+          } catch (error) {
+            console.error("Error processing message", error);
+          }
+        })();
+      }
+    });
   }
 
   serve<Req, Res>(
