@@ -4,7 +4,7 @@ exports.Messenger = exports.jsonEncoder = void 0;
 /* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
  * File Name   : messenger.ts
  * Created at  : 2026-05-21
- * Updated at  : 2026-06-14
+ * Updated at  : 2026-06-25
  * Author      : jeefo
  * Purpose     :
  * Description :
@@ -22,7 +22,7 @@ class Messenger {
     get name() { return this._name; }
     async connect(config) {
         const url = config?.url ?? "nats://localhost:4222";
-        this._nc = await (0, transport_node_1.connect)({ servers: url });
+        this._nc = await (0, transport_node_1.connect)({ servers: url, tls: config?.tls });
         this._name = config?.name;
         console.log(`[${this.name ?? "Unnamed"}] Connected to NATS to '${url}'`);
     }

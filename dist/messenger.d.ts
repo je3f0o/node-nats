@@ -1,4 +1,4 @@
-import { Subscription, NatsConnection } from "@nats-io/nats-core";
+import { TlsOptions, Subscription, NatsConnection } from "@nats-io/nats-core";
 export interface Encoder<T> {
     encode(message: T): {
         finish(): Uint8Array;
@@ -15,8 +15,9 @@ export interface Endpoint<Req, Res> {
     payload?: any;
 }
 export interface Config {
-    name?: string;
+    tls?: TlsOptions;
     url?: string;
+    name?: string;
 }
 export declare class Messenger {
     private _nc;

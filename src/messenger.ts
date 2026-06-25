@@ -1,13 +1,14 @@
 /* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
  * File Name   : messenger.ts
  * Created at  : 2026-05-21
- * Updated at  : 2026-06-14
+ * Updated at  : 2026-06-25
  * Author      : jeefo
  * Purpose     :
  * Description :
 .-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
 import {connect} from "@nats-io/transport-node";
 import {
+  TlsOptions,
   Subscription,
   NatsConnection,
 } from "@nats-io/nats-core";
@@ -32,8 +33,9 @@ export interface Endpoint<Req, Res> {
 }
 
 export interface Config {
-  name? : string;
+  tls?  : TlsOptions;
   url?  : string;
+  name? : string;
 }
 
 export class Messenger {
@@ -45,7 +47,7 @@ export class Messenger {
 
   async connect(config?: Config) {
     const url  = config?.url ?? "nats://localhost:4222";
-    this._nc   = await connect({servers: url});
+    this._nc   = await connect({servers: url, tls: config?.tls});
     this._name = config?.name;
     console.log(`[${this.name ?? "Unnamed"}] Connected to NATS to '${url}'`);
   }
