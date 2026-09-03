@@ -38,6 +38,7 @@ export interface Config {
 export declare class Messenger {
     private _nc?;
     private _name?;
+    private _closing;
     private _onStatus?;
     get nc(): NatsConnection;
     get name(): string | undefined;

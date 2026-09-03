@@ -4,7 +4,7 @@ exports.Messenger = exports.jsonEncoder = void 0;
 /* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
  * File Name   : messenger.ts
  * Created at  : 2026-05-21
- * Updated at  : 2026-09-03
+ * Updated at  : 2026-09-04
  * Author      : jeefo
  * Purpose     :
  * Description :
@@ -86,6 +86,7 @@ const fromUrl = (url) => {
 class Messenger {
     _nc;
     _name;
+    _closing = false;
     _onStatus;
     // Reaching for the connection before connect() used to hand back undefined
     // and fail somewhere further in, on a line that had nothing to do with it.
@@ -104,6 +105,7 @@ class Messenger {
             pass: config?.pass ?? from.pass,
         });
         this._name = config?.name;
+        this._closing = false;
         this._onStatus = config?.onStatus;
         this._nc = await (0, transport_node_1.connect)({
             ...DEFAULTS,
@@ -119,6 +121,7 @@ class Messenger {
     }
     /** Stop listening and let in-flight work finish. Safe before connect(). */
     async close() {
+        this._closing = true;
         if (this._nc && !this._nc.isClosed())
             await this._nc.close();
     }
@@ -151,8 +154,13 @@ class Messenger {
                     case "error":
                         console.error(`${tag} NATS server error:`, status.error.message);
                         break;
+                    // A close is either a shutdown we asked for or the end of the
+                    // service's reach — and the difference is the whole message.
                     case "close":
-                        console.error(`${tag} NATS connection CLOSED — no reconnect`);
+                        if (this._closing)
+                            console.log(`${tag} NATS closed`);
+                        else
+                            console.error(`${tag} NATS connection CLOSED — no reconnect`);
                         break;
                 }
             }
