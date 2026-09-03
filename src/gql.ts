@@ -1,7 +1,7 @@
 /* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
  * File Name   : gql.ts
  * Created at  : 2026-05-21
- * Updated at  : 2026-06-14
+ * Updated at  : 2026-09-03
  * Author      : jeefo
  * Purpose     :
  * Description :
@@ -33,10 +33,6 @@ type Unwrap<T> = T extends Record<string, any>
   : T;
 
 export class GqlClientMessenger extends Messenger {
-  async close() {
-    await this.nc.close();
-  }
-
   async query<T, V extends Record<string, any>>(
     gateway : string,
     doc     : TypedDocumentNode<T, V>,

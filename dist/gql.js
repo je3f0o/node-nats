@@ -4,7 +4,7 @@ exports.GqlClientMessenger = exports.GqlResEncoder = exports.GqlReqEncoder = voi
 /* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
  * File Name   : gql.ts
  * Created at  : 2026-05-21
- * Updated at  : 2026-06-14
+ * Updated at  : 2026-09-03
  * Author      : jeefo
  * Purpose     :
  * Description :
@@ -14,9 +14,6 @@ const messenger_1 = require("./messenger");
 exports.GqlReqEncoder = (0, messenger_1.jsonEncoder)();
 exports.GqlResEncoder = (0, messenger_1.jsonEncoder)();
 class GqlClientMessenger extends messenger_1.Messenger {
-    async close() {
-        await this.nc.close();
-    }
     async query(gateway, doc, vars, token) {
         const payload = {
             query: (0, graphql_1.print)(doc),
