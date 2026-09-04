@@ -34,16 +34,41 @@ exports.jsonEncoder = jsonEncoder;
 //                        pings find it in about a minute, and the reconnect
 //                        starts there instead.
 //
-// An AUTHENTICATION failure is deliberately not retried forever: nats-core
-// aborts on repeated auth errors, so a wrong password fails loudly rather
-// than hiding in a reconnect loop that looks like a network problem.
+//  ignoreAuthErrorAbort  ⛔ MEASURED, and it decides the shape of everything
+//                        else. A server that cannot reach its authoriser
+//                        answers `Authorization Violation` — the SAME error as
+//                        a wrong password, with nothing to tell them apart.
+//                        Clients abort reconnecting after two identical auth
+//                        errors, so an app that restarts while the authoriser
+//                        is down dies and stays dead. With this, it waits and
+//                        connects itself when the authoriser returns (18s in
+//                        the test).
+//
+// The behaviour it replaces — a wrong password failing fast — was only worth
+// having because the alternative was an invisible hang. So the retry is made
+// LOUD instead: see waiting() below. A wrong password is now a line every ten
+// seconds rather than an exit, which is the better of the two failures.
 const DEFAULTS = {
     reconnect: true,
     maxReconnectAttempts: -1,
     reconnectTimeWait: 2_000,
     waitOnFirstConnect: true,
+    ignoreAuthErrorAbort: true,
     pingInterval: 20_000,
     maxPingOut: 3,
+};
+// Nothing reports on a connection that has not been made yet: `nc.status()`
+// exists only once there IS an nc, so an app stuck on its very first connect
+// is silent — measured, `events: (nothing)`. This is the only thing standing
+// between "waiting for NATS" and "hung for no visible reason".
+const waiting = (tag, url) => {
+    const started = Date.now();
+    const timer = setInterval(() => {
+        const secs = Math.round((Date.now() - started) / 1000);
+        console.warn(`${tag} still connecting to NATS at '${url}' — ${secs}s`);
+    }, 10_000);
+    timer.unref?.();
+    return () => clearInterval(timer);
 };
 const bytesOf = (value) => typeof value === "string" ? new TextEncoder().encode(value) : value;
 const authOf = (config) => {
@@ -107,15 +132,21 @@ class Messenger {
         this._name = config?.name;
         this._closing = false;
         this._onStatus = config?.onStatus;
-        this._nc = await (0, transport_node_1.connect)({
-            ...DEFAULTS,
-            servers: from.url,
-            tls: config?.tls,
-            name: config?.name,
-            authenticator: auth,
-            inboxPrefix: config?.inboxPrefix,
-            ...config?.options,
-        });
+        const stop = waiting(`[${config?.name ?? "Unnamed"}]`, from.url);
+        try {
+            this._nc = await (0, transport_node_1.connect)({
+                ...DEFAULTS,
+                servers: from.url,
+                tls: config?.tls,
+                name: config?.name,
+                authenticator: auth,
+                inboxPrefix: config?.inboxPrefix,
+                ...config?.options,
+            });
+        }
+        finally {
+            stop();
+        }
         console.log(`[${this.name ?? "Unnamed"}] Connected to NATS to '${from.url}'`);
         this.watch();
     }
