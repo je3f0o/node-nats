@@ -105,7 +105,7 @@ const fromUrl = (url) => {
 };
 class Messenger {
     _nc;
-    _name;
+    _name = "";
     _closing = false;
     _onStatus;
     // Reaching for the connection before connect() used to hand back undefined
@@ -118,16 +118,21 @@ class Messenger {
     get name() { return this._name; }
     get connected() { return !!this._nc && !this._nc.isClosed(); }
     async connect(config) {
+        // Required in the type, checked here for the caller who is not in
+        // TypeScript — and because "" would pass the type and still be anonymous.
+        if (!config?.name?.trim())
+            throw new Error("Messenger.connect needs a `name`: it is how this client appears on " +
+                "the bus, and it is the gateway other services address it by.");
         const from = fromUrl(config?.url ?? "nats://localhost:4222");
         const auth = authOf({
             ...config,
             user: config?.user ?? from.user,
             pass: config?.pass ?? from.pass,
         });
-        this._name = config?.name;
+        this._name = config.name;
         this._closing = false;
         this._onStatus = config?.onStatus;
-        const stop = waiting(`[${config?.name ?? "Unnamed"}]`, from.url);
+        const stop = waiting(`[${config.name}]`, from.url);
         try {
             this._nc = await (0, transport_node_1.connect)({
                 ...DEFAULTS,
@@ -142,7 +147,7 @@ class Messenger {
         finally {
             stop();
         }
-        console.log(`[${this.name ?? "Unnamed"}] Connected to NATS to '${from.url}'`);
+        console.log(`[${this.name}] Connected to NATS to '${from.url}'`);
         this.watch();
     }
     /** Stop listening and let in-flight work finish. Safe before connect(). */
@@ -157,7 +162,7 @@ class Messenger {
     // worth shouting about.
     watch() {
         const nc = this._nc;
-        const tag = `[${this.name ?? "Unnamed"}]`;
+        const tag = `[${this.name}]`;
         void (async () => {
             for await (const status of nc.status()) {
                 try {

@@ -45,7 +45,17 @@ export interface Endpoint<Req, Res> {
 export interface Config {
   tls?  : TlsOptions;
   url?  : string;
-  name? : string;
+  /**
+   * WHO this client is on the bus. REQUIRED.
+   *
+   * It is the only thing that identifies a connection in the server's own
+   * account of itself (`/connz`, and maestro's NATS page): an anonymous one is
+   * a row nobody can attribute, and we spent an evening reading container logs
+   * one by one to work out whose it was. It is also the GATEWAY name — serve()
+   * answers `<name>.<api>` — so a service that does not name itself cannot be
+   * called at all.
+   */
+  name  : string;
 
   // ── Credentials ────────────────────────────────────────────────────────
   // Pick one. `authenticator` wins, then creds, nkey, token, user/pass.
@@ -165,7 +175,7 @@ const fromUrl = (url: string): {url: string; user?: string; pass?: string} => {
 
 export class Messenger {
   private _nc?       : NatsConnection;
-  private _name?     : string;
+  private _name     = "";
   private _closing   = false;
   private _onStatus? : (status: Status) => void;
 
@@ -179,7 +189,14 @@ export class Messenger {
   get name()      { return this._name; }
   get connected() { return !!this._nc && !this._nc.isClosed(); }
 
-  async connect(config?: Config) {
+  async connect(config: Config) {
+    // Required in the type, checked here for the caller who is not in
+    // TypeScript — and because "" would pass the type and still be anonymous.
+    if (!config?.name?.trim())
+      throw new Error(
+        "Messenger.connect needs a `name`: it is how this client appears on " +
+        "the bus, and it is the gateway other services address it by.",
+      );
     const from = fromUrl(config?.url ?? "nats://localhost:4222");
     const auth = authOf({
       ...config,
@@ -187,11 +204,11 @@ export class Messenger {
       pass : config?.pass ?? from.pass,
     });
 
-    this._name     = config?.name;
+    this._name     = config.name;
     this._closing  = false;
     this._onStatus = config?.onStatus;
 
-    const stop = waiting(`[${config?.name ?? "Unnamed"}]`, from.url);
+    const stop = waiting(`[${config.name}]`, from.url);
     try {
       this._nc = await connect({
         ...DEFAULTS,
@@ -206,7 +223,7 @@ export class Messenger {
       stop();
     }
 
-    console.log(`[${this.name ?? "Unnamed"}] Connected to NATS to '${from.url}'`);
+    console.log(`[${this.name}] Connected to NATS to '${from.url}'`);
     this.watch();
   }
 
@@ -222,7 +239,7 @@ export class Messenger {
   // worth shouting about.
   private watch() {
     const nc  = this._nc!;
-    const tag = `[${this.name ?? "Unnamed"}]`;
+    const tag = `[${this.name}]`;
 
     void (async () => {
       for await (const status of nc.status()) {

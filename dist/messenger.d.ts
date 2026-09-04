@@ -17,7 +17,17 @@ export interface Endpoint<Req, Res> {
 export interface Config {
     tls?: TlsOptions;
     url?: string;
-    name?: string;
+    /**
+     * WHO this client is on the bus. REQUIRED.
+     *
+     * It is the only thing that identifies a connection in the server's own
+     * account of itself (`/connz`, and maestro's NATS page): an anonymous one is
+     * a row nobody can attribute, and we spent an evening reading container logs
+     * one by one to work out whose it was. It is also the GATEWAY name — serve()
+     * answers `<name>.<api>` — so a service that does not name itself cannot be
+     * called at all.
+     */
+    name: string;
     user?: string;
     pass?: string;
     token?: string;
@@ -37,13 +47,13 @@ export interface Config {
 }
 export declare class Messenger {
     private _nc?;
-    private _name?;
+    private _name;
     private _closing;
     private _onStatus?;
     get nc(): NatsConnection;
-    get name(): string | undefined;
+    get name(): string;
     get connected(): boolean;
-    connect(config?: Config): Promise<void>;
+    connect(config: Config): Promise<void>;
     /** Stop listening and let in-flight work finish. Safe before connect(). */
     close(): Promise<void>;
     private watch;
