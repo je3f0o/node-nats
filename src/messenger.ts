@@ -93,26 +93,21 @@ export interface Config {
 //                        pings find it in about a minute, and the reconnect
 //                        starts there instead.
 //
-//  ignoreAuthErrorAbort  ⛔ MEASURED, and it decides the shape of everything
-//                        else. A server that cannot reach its authoriser
-//                        answers `Authorization Violation` — the SAME error as
-//                        a wrong password, with nothing to tell them apart.
-//                        Clients abort reconnecting after two identical auth
-//                        errors, so an app that restarts while the authoriser
-//                        is down dies and stays dead. With this, it waits and
-//                        connects itself when the authoriser returns (18s in
-//                        the test).
+// An AUTHENTICATION failure is deliberately NOT retried forever: nats-core
+// aborts on repeated auth errors, so a wrong credential fails loudly instead
+// of hiding in a reconnect loop that looks like a network problem.
 //
-// The behaviour it replaces — a wrong password failing fast — was only worth
-// having because the alternative was an invisible hang. So the retry is made
-// LOUD instead: see waiting() below. A wrong password is now a line every ten
-// seconds rather than an exit, which is the better of the two failures.
+// ⚠️ That is only safe because nothing has to be alive to check a credential
+// here — the server verifies a signature. A design where a SERVICE answers
+// logins was measured on 2026-09-04 and needed the opposite (`ignoreAuthErrorAbort`),
+// because a server that cannot reach that service says "Authorization
+// Violation" — the same words as a wrong password. If anything ever puts a
+// live authoriser back in the connect path, this line has to be revisited.
 const DEFAULTS: Partial<ConnectionOptions> = {
   reconnect            : true,
   maxReconnectAttempts : -1,
   reconnectTimeWait    : 2_000,
   waitOnFirstConnect   : true,
-  ignoreAuthErrorAbort : true,
   pingInterval         : 20_000,
   maxPingOut           : 3,
 };
