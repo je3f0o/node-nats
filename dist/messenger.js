@@ -1,10 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Messenger = exports.jsonEncoder = void 0;
+exports.Messenger = exports.credsName = exports.inboxOf = exports.jsonEncoder = void 0;
 /* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
  * File Name   : messenger.ts
  * Created at  : 2026-05-21
- * Updated at  : 2026-09-04
+ * Updated at  : 2026-11-09
  * Author      : jeefo
  * Purpose     :
  * Description :
@@ -103,6 +103,51 @@ const fromUrl = (url) => {
         return { url }; // not a url this can parse — hand it over untouched
     }
 };
+// ── Its own inbox ────────────────────────────────────────────────────────
+//
+// ⛔ Every reply on the bus used to land on `_INBOX.<random>`, and any app
+// could subscribe to `_INBOX.>` and read them ALL — another app's login
+// token, its files, its rows (maestro launch task t8, 2026-11-09). A
+// credential now carries one inbox: `_INBOX.<its name>`, and the server lets
+// it subscribe there and nowhere else under `_INBOX`. maestro signs the
+// credential, so it signs the name — the same name this reads back out of
+// it, which is why the prefix comes from the credential and not from
+// `name` (an app may call itself something else on the bus).
+/** One subject token: what a name becomes inside `_INBOX.<name>`. */
+const subjectToken = (s) => s.trim().replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 64) || "x";
+/** The inbox prefix of a credential named `name` — the one place both
+ *  sides (this client, and whoever signs its permissions) compute it. */
+const inboxOf = (name) => `_INBOX.${subjectToken(name)}`;
+exports.inboxOf = inboxOf;
+/** The name a `.creds` file's user JWT was signed with; null when there is
+ *  no readable one (then the default inbox stays — nothing changes). */
+const credsName = (creds) => {
+    const text = typeof creds === "string"
+        ? creds : new TextDecoder().decode(creds);
+    const jwt = /-----BEGIN NATS USER JWT-----\s*([^\s-][^\s]*)/.exec(text);
+    const body = jwt?.[1].split(".")[1];
+    if (!body)
+        return null;
+    try {
+        const claims = JSON.parse(Buffer.from(body, "base64url").toString());
+        return typeof claims.name === "string" && claims.name.trim()
+            ? claims.name : null;
+    }
+    catch {
+        return null;
+    }
+};
+exports.credsName = credsName;
+/** The prefix this connection uses: given, else its credential's, else the
+ *  library default (anonymous, user/pass, token — exactly as before). */
+const inboxFor = (config) => {
+    if (config.inboxPrefix)
+        return config.inboxPrefix;
+    const creds = config.credsFile ? (0, node_fs_1.readFileSync)(config.credsFile)
+        : config.creds;
+    const name = creds ? (0, exports.credsName)(creds) : null;
+    return name ? (0, exports.inboxOf)(name) : undefined;
+};
 class Messenger {
     _nc;
     _name = "";
@@ -140,7 +185,7 @@ class Messenger {
                 tls: config?.tls,
                 name: config?.name,
                 authenticator: auth,
-                inboxPrefix: config?.inboxPrefix,
+                inboxPrefix: inboxFor(config),
                 ...config?.options,
             });
         }

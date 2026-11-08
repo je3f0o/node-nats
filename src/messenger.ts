@@ -1,7 +1,7 @@
 /* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
  * File Name   : messenger.ts
  * Created at  : 2026-05-21
- * Updated at  : 2026-09-04
+ * Updated at  : 2026-11-09
  * Author      : jeefo
  * Purpose     :
  * Description :
@@ -77,7 +77,8 @@ export interface Config {
   // ── Connection ─────────────────────────────────────────────────────────
   /** Inbox prefix for request(). A user whose subject permissions are
    *  narrowed still needs its replies to land somewhere it may subscribe;
-   *  without this they arrive on `_INBOX.>` and are denied. */
+   *  without this they arrive on `_INBOX.>` and are denied.
+   *  With a credential and no prefix: the credential's own (inboxOf). */
   inboxPrefix? : string;
   /** Every connection event — disconnect, reconnect, server error, close.
    *  For a health endpoint or a metric; the events are logged regardless. */
@@ -173,6 +174,53 @@ const fromUrl = (url: string): {url: string; user?: string; pass?: string} => {
   }
 };
 
+// ── Its own inbox ────────────────────────────────────────────────────────
+//
+// ⛔ Every reply on the bus used to land on `_INBOX.<random>`, and any app
+// could subscribe to `_INBOX.>` and read them ALL — another app's login
+// token, its files, its rows (maestro launch task t8, 2026-11-09). A
+// credential now carries one inbox: `_INBOX.<its name>`, and the server lets
+// it subscribe there and nowhere else under `_INBOX`. maestro signs the
+// credential, so it signs the name — the same name this reads back out of
+// it, which is why the prefix comes from the credential and not from
+// `name` (an app may call itself something else on the bus).
+
+/** One subject token: what a name becomes inside `_INBOX.<name>`. */
+const subjectToken = (s: string): string =>
+  s.trim().replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 64) || "x";
+
+/** The inbox prefix of a credential named `name` — the one place both
+ *  sides (this client, and whoever signs its permissions) compute it. */
+export const inboxOf = (name: string): string =>
+  `_INBOX.${subjectToken(name)}`;
+
+/** The name a `.creds` file's user JWT was signed with; null when there is
+ *  no readable one (then the default inbox stays — nothing changes). */
+export const credsName = (creds: string | Uint8Array): string | null => {
+  const text = typeof creds === "string"
+    ? creds : new TextDecoder().decode(creds);
+  const jwt  = /-----BEGIN NATS USER JWT-----\s*([^\s-][^\s]*)/.exec(text);
+  const body = jwt?.[1].split(".")[1];
+  if (!body) return null;
+  try {
+    const claims = JSON.parse(Buffer.from(body, "base64url").toString());
+    return typeof claims.name === "string" && claims.name.trim()
+      ? claims.name : null;
+  } catch {
+    return null;
+  }
+};
+
+/** The prefix this connection uses: given, else its credential's, else the
+ *  library default (anonymous, user/pass, token — exactly as before). */
+const inboxFor = (config: Config): string | undefined => {
+  if (config.inboxPrefix) return config.inboxPrefix;
+  const creds = config.credsFile ? readFileSync(config.credsFile)
+    : config.creds;
+  const name  = creds ? credsName(creds) : null;
+  return name ? inboxOf(name) : undefined;
+};
+
 export class Messenger {
   private _nc?       : NatsConnection;
   private _name     = "";
@@ -216,7 +264,7 @@ export class Messenger {
         tls           : config?.tls,
         name          : config?.name,
         authenticator : auth,
-        inboxPrefix   : config?.inboxPrefix,
+        inboxPrefix   : inboxFor(config),
         ...config?.options,
       });
     } finally {

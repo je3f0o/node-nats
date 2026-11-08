@@ -37,7 +37,8 @@ export interface Config {
     authenticator?: Authenticator;
     /** Inbox prefix for request(). A user whose subject permissions are
      *  narrowed still needs its replies to land somewhere it may subscribe;
-     *  without this they arrive on `_INBOX.>` and are denied. */
+     *  without this they arrive on `_INBOX.>` and are denied.
+     *  With a credential and no prefix: the credential's own (inboxOf). */
     inboxPrefix?: string;
     /** Every connection event — disconnect, reconnect, server error, close.
      *  For a health endpoint or a metric; the events are logged regardless. */
@@ -45,6 +46,12 @@ export interface Config {
     /** Merged last: the @nats-io options this interface does not name. */
     options?: Partial<ConnectionOptions>;
 }
+/** The inbox prefix of a credential named `name` — the one place both
+ *  sides (this client, and whoever signs its permissions) compute it. */
+export declare const inboxOf: (name: string) => string;
+/** The name a `.creds` file's user JWT was signed with; null when there is
+ *  no readable one (then the default inbox stays — nothing changes). */
+export declare const credsName: (creds: string | Uint8Array) => string | null;
 export declare class Messenger {
     private _nc?;
     private _name;

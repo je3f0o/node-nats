@@ -131,6 +131,13 @@ server allows:
 await messenger.connect({url, inboxPrefix: "_INBOX.orders"});
 ```
 
+With a credential (`creds` / `credsFile`) and no `inboxPrefix`, the prefix
+is the credential's own: `_INBOX.<the name its user JWT was signed with>`
+(`inboxOf(name)`; `credsName(creds)` reads the name back). Whoever signs the
+credential allows `_INBOX.<name>.>` and nothing else under `_INBOX`, so no
+app can read another's replies. Anonymous, user/pass and token connections
+keep the library default.
+
 ## Publish / Subscribe
 
 `publish()` fires a message on a subject with no reply expected.
